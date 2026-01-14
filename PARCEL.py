@@ -68,7 +68,7 @@ st.markdown("""
         margin-bottom: 0.5rem;
     }
 
-    /* Estilo aprimorado para métricas/KPIs */
+    /* Estilo aprimorado para métricas/KPIs com tooltips visuais */
     div[data-testid="stMetric"] {
         background-color: #ffffff;
         border: 2px solid #1565C0;
@@ -76,14 +76,17 @@ st.markdown("""
         padding: 15px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         transition: all 0.3s ease;
+        position: relative;
     }
     div[data-testid="stMetric"]:hover {
-        box-shadow: 0 4px 12px rgba(21, 101, 192, 0.25);
-        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(21, 101, 192, 0.3);
+        transform: translateY(-3px);
+        border-color: #0d47a1;
     }
     div[data-testid="stMetric"] > label {
         font-weight: 600;
         color: #2c3e50;
+        font-size: 0.9rem;
     }
     div[data-testid="stMetricValue"] {
         font-size: 1.8rem;
@@ -91,7 +94,17 @@ st.markdown("""
         color: #1565C0;
     }
 
-    /* Caixa de ajuda contextual */
+    /* Estilo para ícone de ajuda nos KPIs */
+    div[data-testid="stMetric"] [data-testid="stTooltipIcon"] {
+        color: #1976d2;
+        opacity: 0.7;
+        transition: opacity 0.2s ease;
+    }
+    div[data-testid="stMetric"]:hover [data-testid="stTooltipIcon"] {
+        opacity: 1;
+    }
+
+    /* Caixa de ajuda contextual aprimorada */
     .help-box {
         background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
         border-left: 4px solid #1976d2;
@@ -105,6 +118,49 @@ st.markdown("""
         margin-top: 0;
         margin-bottom: 10px;
         font-size: 1.1rem;
+    }
+
+    /* Dica de UX - indicador visual */
+    .ux-tip {
+        background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+        border-left: 4px solid #ffa000;
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin: 10px 0;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .ux-tip::before {
+        content: "💡";
+        font-size: 1.2rem;
+    }
+
+    /* Legenda de indicadores */
+    .indicator-legend {
+        background-color: #f5f5f5;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 10px 0;
+        font-size: 0.85rem;
+    }
+    .indicator-legend-title {
+        font-weight: 600;
+        color: #424242;
+        margin-bottom: 8px;
+    }
+    .indicator-item {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 15px;
+        margin-bottom: 5px;
+    }
+    .indicator-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 6px;
     }
 
     .risco-critico {
@@ -166,7 +222,7 @@ st.markdown("""
     .stDataFrame {
         font-size: 0.9rem;
     }
-    
+
     /* Cards de resumo */
     .card-resumo {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -183,6 +239,43 @@ st.markdown("""
     .card-resumo p {
         margin: 5px 0 0 0;
         opacity: 0.9;
+    }
+
+    /* KPI cards com cores por categoria */
+    .kpi-total {
+        border-left: 4px solid #1976d2 !important;
+    }
+    .kpi-success {
+        border-left: 4px solid #2e7d32 !important;
+    }
+    .kpi-danger {
+        border-left: 4px solid #c62828 !important;
+    }
+    .kpi-warning {
+        border-left: 4px solid #f57c00 !important;
+    }
+
+    /* Seção de ajuda expandida */
+    .help-section {
+        background-color: #fafafa;
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 15px;
+        margin: 15px 0;
+    }
+    .help-section-title {
+        font-weight: 600;
+        color: #1565C0;
+        font-size: 1rem;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .help-section-content {
+        color: #616161;
+        font-size: 0.9rem;
+        line-height: 1.5;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -600,55 +693,74 @@ def prever_risco_empresas(modelo, scaler, features, df):
 def pagina_dashboard_executivo(dados, filtros_globais):
     """Dashboard executivo com KPIs principais."""
     st.markdown("<h1 class='main-header'>📊 Dashboard Executivo - Parcelamentos</h1>", unsafe_allow_html=True)
-    
+
     resumo = dados.get('resumo', pd.DataFrame())
-    
+
     if resumo.empty:
         st.warning("Dados de resumo não disponíveis.")
         return
-    
+
     r = resumo.iloc[0]
-    
-    # Caixa de ajuda
-    with st.expander("ℹ️ Sobre este dashboard", expanded=False):
+
+    # Caixa de ajuda expandida
+    with st.expander("ℹ️ Como interpretar este dashboard", expanded=False):
         st.markdown("""
-        **Objetivo:** Monitorar e analisar os parcelamentos de tributos estaduais em Santa Catarina.
-        
-        **Principais métricas:**
-        - **Parcelamentos Ativos**: Em andamento, com parcelas sendo pagas
-        - **Taxa de Sucesso**: Percentual de parcelamentos quitados vs cancelados
-        - **Alertas**: Parcelamentos que requerem atenção especial
-        
-        **Fontes de dados:** gecob.parcel_* (atualização diária)
+        ### Objetivo
+        Monitorar e analisar os parcelamentos de tributos estaduais em Santa Catarina, fornecendo
+        uma visão consolidada para tomada de decisões.
+
+        ### Como usar os indicadores
+
+        | Indicador | O que significa | Ação sugerida |
+        |-----------|-----------------|---------------|
+        | **Total Parcelamentos** | Volume total de acordos no sistema | Acompanhar tendência mensal |
+        | **Taxa de Sucesso** | Efetividade dos parcelamentos (Quitados ÷ Finalizados) | Meta: manter acima de 60% |
+        | **Alertas Ativos** | Parcelamentos com risco de cancelamento | Priorizar ações de cobrança |
+        | **Valor em Risco** | Montante com probabilidade de não recebimento | Focar em empresas críticas |
+
+        ### Cores dos indicadores
+        - 🟢 **Verde**: Indicador positivo (ex: quitados, taxa de sucesso alta)
+        - 🔴 **Vermelho**: Indicador de atenção (ex: cancelados, alertas urgentes)
+        - 🟡 **Amarelo**: Indicador de monitoramento (ex: pendentes)
+        - 🔵 **Azul**: Indicador neutro/informativo (ex: totais)
+
+        **Fonte de dados:** gecob.parcel_* | **Atualização:** Diária
         """)
-    
+
+    # Dica de UX
+    st.markdown("""
+    <div class='ux-tip'>
+        <span>Passe o mouse sobre os cards para ver detalhes. Clique no ícone <b>(?)</b> para explicações completas.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     # KPIs principais
     st.markdown("### 📈 Visão Geral")
     col1, col2, col3, col4, col5 = st.columns(5)
-    
+
     with col1:
         st.metric(
             "Total Parcelamentos",
             f"{int(r['total_parcelamentos']):,}",
-            help="Quantidade total de parcelamentos no sistema"
+            help="📊 **Total de Parcelamentos**\n\nQuantidade total de parcelamentos registrados no sistema, incluindo todos os status (ativos, quitados, cancelados, pendentes).\n\n**Como usar:** Compare com meses anteriores para identificar tendências de adesão."
         )
     with col2:
         st.metric(
             "Empresas",
             f"{int(r['total_empresas']):,}",
-            help="Quantidade de empresas com parcelamentos"
+            help="🏢 **Empresas Únicas**\n\nNúmero de empresas distintas (CNPJ raiz) que possuem pelo menos um parcelamento.\n\n**Observação:** Uma empresa pode ter múltiplos parcelamentos simultaneamente."
         )
     with col3:
         st.metric(
             "Valor Total",
             formatar_valor_bilhoes(r['valor_total_parcelado']),
-            help="Soma de todos os valores parcelados"
+            help="💰 **Valor Total Parcelado**\n\nSoma de todos os valores originais parcelados, em bilhões de reais.\n\n**Inclui:** Todos os parcelamentos independente do status atual."
         )
     with col4:
         st.metric(
             "Taxa de Sucesso",
             f"{r['taxa_sucesso_global_pct']:.1f}%",
-            help="Percentual de parcelamentos quitados (Quitados / (Quitados + Cancelados))"
+            help="✅ **Taxa de Sucesso Global**\n\n**Fórmula:** (Quitados ÷ (Quitados + Cancelados)) × 100\n\n**Interpretação:**\n- Acima de 70%: Excelente\n- 50-70%: Adequado\n- Abaixo de 50%: Requer atenção\n\n**Meta institucional:** ≥ 65%"
         )
     with col5:
         st.metric(
@@ -656,42 +768,53 @@ def pagina_dashboard_executivo(dados, filtros_globais):
             f"{int(r['total_alertas']):,}",
             delta=f"{int(r['alertas_urgentes'])} urgentes",
             delta_color="inverse",
-            help="Parcelamentos que requerem atenção"
+            help="🚨 **Alertas de Risco**\n\nParcelamentos que apresentam sinais de possível inadimplência.\n\n**Urgentes:** Requerem ação imediata (empresas com alto risco de cancelamento).\n\n**Ação:** Acesse 'Central de Alertas' para detalhes."
         )
-    
+
     st.markdown("---")
-    
+
+    # Legenda dos status
+    st.markdown("""
+    <div class='indicator-legend'>
+        <div class='indicator-legend-title'>📋 Legenda dos Status</div>
+        <span class='indicator-item'><span class='indicator-dot' style='background-color: #1976d2;'></span>Ativo: em andamento</span>
+        <span class='indicator-item'><span class='indicator-dot' style='background-color: #2e7d32;'></span>Quitado: finalizado com sucesso</span>
+        <span class='indicator-item'><span class='indicator-dot' style='background-color: #c62828;'></span>Cancelado: inadimplente</span>
+        <span class='indicator-item'><span class='indicator-dot' style='background-color: #ff9800;'></span>Pendente: aguardando 1ª parcela</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     # Segunda linha de KPIs
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
         st.metric(
-            "Ativos",
+            "🔵 Ativos",
             f"{int(r['qtd_ativos']):,}",
             delta=formatar_valor_bilhoes(r['valor_ativos']),
-            help="Parcelamentos em andamento"
+            help="🔵 **Parcelamentos Ativos**\n\nAcordos em andamento com pagamentos sendo realizados regularmente.\n\n**Valor mostrado abaixo:** Montante total em parcelamentos ativos (potencial de arrecadação).\n\n**Monitorar:** Aumento indica maior adesão; queda pode indicar quitações ou cancelamentos."
         )
     with col2:
         st.metric(
-            "Quitados",
+            "🟢 Quitados",
             f"{int(r['qtd_quitados']):,}",
             delta=formatar_valor_bilhoes(r['valor_quitados']),
             delta_color="off",
-            help="Parcelamentos finalizados com sucesso"
+            help="🟢 **Parcelamentos Quitados**\n\nAcordos finalizados com sucesso - todas as parcelas foram pagas.\n\n**Valor mostrado abaixo:** Total já arrecadado através de quitações.\n\n**Indicador de sucesso:** Quanto maior, melhor a efetividade do programa."
         )
     with col3:
         st.metric(
-            "Cancelados",
+            "🔴 Cancelados",
             f"{int(r['qtd_cancelados']):,}",
             delta=formatar_valor_bilhoes(r['valor_cancelados']),
             delta_color="off",
-            help="Parcelamentos cancelados (geralmente por inadimplência)"
+            help="🔴 **Parcelamentos Cancelados**\n\nAcordos cancelados, geralmente por inadimplência superior a 90 dias.\n\n**Valor mostrado abaixo:** Potencial de arrecadação perdido.\n\n**Atenção:** Valores retornam para cobrança regular ou dívida ativa."
         )
     with col4:
         st.metric(
-            "Pendentes 1ª Parcela",
+            "🟡 Pendentes 1ª Parcela",
             f"{int(r['qtd_pendentes_1a_parcela']):,}",
-            help="Parcelamentos contratados mas sem pagamento da primeira parcela"
+            help="🟡 **Aguardando Primeira Parcela**\n\nParcelamentos contratados mas ainda sem pagamento inicial.\n\n**Risco:** Alta probabilidade de cancelamento se não regularizados.\n\n**Ação recomendada:** Contato proativo com contribuintes para regularização."
         )
     
     st.markdown("---")
@@ -834,21 +957,61 @@ def pagina_dashboard_executivo(dados, filtros_globais):
 def pagina_analise_temporal(dados, filtros_globais):
     """Página de análise temporal."""
     st.markdown("<h1 class='main-header'>📅 Análise Temporal</h1>", unsafe_allow_html=True)
-    
+
     serie = dados.get('serie_temporal', pd.DataFrame())
-    
+
     if serie.empty:
         st.warning("Dados de série temporal não disponíveis.")
         return
-    
+
+    # Caixa de ajuda
+    with st.expander("ℹ️ Como usar a análise temporal", expanded=False):
+        st.markdown("""
+        ### Objetivo
+        Acompanhar a evolução dos parcelamentos ao longo do tempo, identificando tendências e sazonalidades.
+
+        ### Gráficos disponíveis
+        | Gráfico | O que mostra | Uso |
+        |---------|--------------|-----|
+        | **Quantidade por Status** | Evolução de ativos, quitados e cancelados | Identificar tendências |
+        | **Valor por Status** | Montantes quitados vs cancelados | Avaliar impacto financeiro |
+        | **Taxa de Sucesso** | Evolução da efetividade | Monitorar performance |
+        | **Ticket Médio** | Valor médio por parcelamento | Identificar mudanças de perfil |
+
+        ### Como usar os filtros
+        1. **Ano:** Selecione um ano específico ou "Todos" para visão completa
+        2. **Categoria:** Filtre por tipo de parcelamento
+
+        ### Dicas de análise
+        - Picos em determinados meses podem indicar campanhas ou vencimentos
+        - Queda na taxa de sucesso requer investigação
+        - Aumento do ticket médio pode indicar parcelamentos de maior valor
+        """)
+
+    # Dica de UX
+    st.markdown("""
+    <div class='ux-tip'>
+        <span>Use os filtros para segmentar a análise. Passe o mouse sobre os gráficos para ver valores detalhados.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     # Filtros
     col1, col2 = st.columns(2)
     with col1:
         anos = sorted(serie['ano_pedido'].unique())
-        ano_selecionado = st.selectbox("Ano", ["Todos"] + list(anos), index=0)
+        ano_selecionado = st.selectbox(
+            "Ano",
+            ["Todos"] + list(anos),
+            index=0,
+            help="Selecione um ano específico para análise focada ou 'Todos' para visão histórica completa."
+        )
     with col2:
         categorias = ['Todas', 'ICMS', 'Dívida Ativa', 'Declarado', 'RECUPERA+']
-        categoria_selecionada = st.selectbox("Categoria", categorias)
+        categoria_selecionada = st.selectbox(
+            "Categoria",
+            categorias,
+            help="Filtre por categoria de parcelamento. Cada categoria tem características e taxas de sucesso diferentes."
+        )
     
     # Aplicar filtros
     df = serie.copy()
@@ -949,24 +1112,69 @@ def pagina_analise_temporal(dados, filtros_globais):
 def pagina_analise_regional(dados, filtros_globais):
     """Página de análise por regional (GERFE)."""
     st.markdown("<h1 class='main-header'>🗺️ Análise por Regional (GERFE)</h1>", unsafe_allow_html=True)
-    
+
     df_gerfe = dados.get('metricas_gerfe', pd.DataFrame())
-    
+
     if df_gerfe.empty:
         st.warning("Dados de regionais não disponíveis.")
         return
-    
+
+    # Caixa de ajuda
+    with st.expander("ℹ️ Como interpretar a análise regional", expanded=False):
+        st.markdown("""
+        ### O que é GERFE?
+        **Gerência Regional da Fazenda Estadual** - unidades descentralizadas da SEF/SC responsáveis
+        pela fiscalização e atendimento em cada região do estado.
+
+        ### Indicadores desta página
+        | Indicador | Significado | Uso |
+        |-----------|-------------|-----|
+        | **Taxa de Sucesso** | % de parcelamentos quitados vs finalizados | Comparar efetividade entre regionais |
+        | **Empresas Alto Risco** | Empresas com score ≥ 60 | Priorizar ações de cobrança |
+        | **Valor por Regional** | Montante parcelado por região | Identificar concentração de débitos |
+
+        ### Como usar
+        1. Compare as taxas de sucesso entre regionais
+        2. Identifique regionais com baixa performance para ações focadas
+        3. Use o treemap para visualizar a distribuição de valores
+        """)
+
+    # Dica de UX
+    st.markdown("""
+    <div class='ux-tip'>
+        <span>Use o seletor ao final da página para ver detalhes de cada regional. O treemap mostra proporcionalmente o valor por região.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     # Métricas gerais
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
-        st.metric("Total Regionais", len(df_gerfe))
+        st.metric(
+            "Total Regionais",
+            len(df_gerfe),
+            help="🏛️ **Regionais Ativas**\n\nNúmero de GERFEs (Gerências Regionais da Fazenda Estadual) com parcelamentos registrados.\n\n**Cobertura:** Abrange todo o estado de Santa Catarina."
+        )
     with col2:
-        st.metric("Maior Taxa Sucesso", f"{df_gerfe['taxa_sucesso_pct'].max():.1f}%")
+        melhor_gerfe = df_gerfe.loc[df_gerfe['taxa_sucesso_pct'].idxmax(), 'gerfe']
+        st.metric(
+            "Maior Taxa Sucesso",
+            f"{df_gerfe['taxa_sucesso_pct'].max():.1f}%",
+            help=f"🏆 **Melhor Performance**\n\nRegional com maior taxa de sucesso em parcelamentos.\n\n**Regional:** {melhor_gerfe}\n\n**Benchmark:** Esta regional pode servir de referência para boas práticas."
+        )
     with col3:
-        st.metric("Menor Taxa Sucesso", f"{df_gerfe['taxa_sucesso_pct'].min():.1f}%")
+        pior_gerfe = df_gerfe.loc[df_gerfe['taxa_sucesso_pct'].idxmin(), 'gerfe']
+        st.metric(
+            "Menor Taxa Sucesso",
+            f"{df_gerfe['taxa_sucesso_pct'].min():.1f}%",
+            help=f"⚠️ **Menor Performance**\n\nRegional com menor taxa de sucesso em parcelamentos.\n\n**Regional:** {pior_gerfe}\n\n**Ação:** Avaliar causas e implementar melhorias."
+        )
     with col4:
-        st.metric("Empresas Alto Risco", f"{df_gerfe['empresas_alto_risco'].sum():,}")
+        st.metric(
+            "Empresas Alto Risco",
+            f"{df_gerfe['empresas_alto_risco'].sum():,}",
+            help="🎯 **Empresas de Alto Risco**\n\nTotal de empresas com score de risco ≥ 60 em todas as regionais.\n\n**Classificação:**\n- Score 60-79: Risco Alto\n- Score ≥ 80: Risco Crítico\n\n**Ação:** Priorizar para ações preventivas de cobrança."
+        )
     
     st.markdown("---")
     
@@ -1035,11 +1243,23 @@ def pagina_analise_regional(dados, filtros_globais):
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Total Parcelamentos", f"{int(gerfe_info['total_parcelamentos']):,}")
+            st.metric(
+                "Total Parcelamentos",
+                f"{int(gerfe_info['total_parcelamentos']):,}",
+                help="📊 **Total na Regional**\n\nQuantidade de parcelamentos registrados nesta GERFE, incluindo todos os status."
+            )
         with col2:
-            st.metric("Taxa de Sucesso", f"{gerfe_info['taxa_sucesso_pct']:.1f}%")
+            st.metric(
+                "Taxa de Sucesso",
+                f"{gerfe_info['taxa_sucesso_pct']:.1f}%",
+                help="✅ **Taxa de Sucesso Regional**\n\nPercentual de parcelamentos quitados em relação aos finalizados (quitados + cancelados).\n\n**Compare:** Com a média estadual para avaliar performance."
+            )
         with col3:
-            st.metric("Valor Ativo", formatar_valor_milhoes(gerfe_info['valor_ativos']))
+            st.metric(
+                "Valor Ativo",
+                formatar_valor_milhoes(gerfe_info['valor_ativos']),
+                help="💰 **Valor em Parcelamentos Ativos**\n\nMontante total em parcelamentos em andamento nesta regional.\n\n**Representa:** Potencial de arrecadação futura."
+            )
         
         # Carregar parcelamentos da regional
         if st.button("📋 Carregar Parcelamentos"):
@@ -1056,13 +1276,37 @@ def pagina_analise_regional(dados, filtros_globais):
 def pagina_analise_setorial(dados, filtros_globais):
     """Página de análise por setor (GES)."""
     st.markdown("<h1 class='main-header'>🏭 Análise por Setor (GES)</h1>", unsafe_allow_html=True)
-    
+
     df_ges = dados.get('metricas_ges', pd.DataFrame())
-    
+
     if df_ges.empty:
         st.warning("Dados setoriais não disponíveis.")
         return
-    
+
+    # Caixa de ajuda
+    with st.expander("ℹ️ Como interpretar a análise setorial", expanded=False):
+        st.markdown("""
+        ### O que é GES?
+        **Gerência de Gestão Setorial** - unidades especializadas por segmento econômico na SEF/SC,
+        responsáveis pelo acompanhamento de setores específicos da economia.
+
+        ### Análise CNAE
+        O **CNAE** (Classificação Nacional de Atividades Econômicas) permite identificar
+        quais setores da economia têm maior volume de parcelamentos e sua taxa de sucesso.
+
+        ### Como usar esta análise
+        1. **Identificar setores problemáticos:** Baixa taxa de sucesso indica necessidade de atenção
+        2. **Priorizar ações:** Focar em setores com alto valor parcelado e baixa taxa de sucesso
+        3. **Benchmarking:** Comparar desempenho entre setores similares
+        """)
+
+    # Dica de UX
+    st.markdown("""
+    <div class='ux-tip'>
+        <span>O gráfico de pizza mostra a distribuição de valores. Passe o mouse para ver detalhes de cada setor.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     # Gráficos
     col1, col2 = st.columns(2)
     
@@ -1118,45 +1362,118 @@ def pagina_analise_setorial(dados, filtros_globais):
 def pagina_empresas_risco(dados, filtros_globais):
     """Página de empresas por risco."""
     st.markdown("<h1 class='main-header'>🎯 Análise de Risco - Empresas</h1>", unsafe_allow_html=True)
-    
+
     df_empresas = dados.get('empresas_score', pd.DataFrame())
-    
+
     if df_empresas.empty:
         st.warning("Dados de empresas não disponíveis.")
         return
-    
-    # Filtros
+
+    # Caixa de ajuda
+    with st.expander("ℹ️ Como funciona o Score de Risco", expanded=False):
+        st.markdown("""
+        ### Metodologia do Score
+        O score de risco varia de **0 a 100** (maior = mais arriscado) e é calculado com base em 5 componentes:
+
+        | Componente | Peso | O que mede |
+        |------------|------|------------|
+        | **Histórico de Cancelamentos** | 30% | Taxa de cancelamento passada |
+        | **Valor em Risco** | 25% | Montante em parcelamentos ativos |
+        | **Recência** | 20% | Tempo desde último parcelamento |
+        | **Reincidência** | 15% | Se tem 3+ cancelamentos |
+        | **Comportamento** | 10% | Padrão de pagamento histórico |
+
+        ### Classificações de Risco
+        - 🔴 **CRÍTICO (≥80):** Requer ação imediata - alta probabilidade de cancelamento
+        - 🟠 **ALTO (60-79):** Requer atenção - monitoramento frequente
+        - 🟡 **MÉDIO (40-59):** Monitoramento regular
+        - 🟢 **BAIXO (<40):** Baixo risco - acompanhamento padrão
+
+        ### Como usar os filtros
+        1. Selecione as classificações de risco desejadas
+        2. Defina um score mínimo para focar em casos mais críticos
+        3. Use o filtro de valor para priorizar por impacto financeiro
+        """)
+
+    # Dica de UX
+    st.markdown("""
+    <div class='ux-tip'>
+        <span>Use os filtros abaixo para segmentar empresas. Clique nas colunas da tabela para ordenar.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Filtros com tooltips
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
         riscos = df_empresas['classificacao_risco'].unique().tolist()
-        risco_filtro = st.multiselect("Classificação de Risco", riscos, default=riscos)
+        risco_filtro = st.multiselect(
+            "Classificação de Risco",
+            riscos,
+            default=riscos,
+            help="Filtre por nível de risco. Selecione múltiplas classificações para comparar."
+        )
     with col2:
-        score_min = st.slider("Score Mínimo", 0, 100, 0)
+        score_min = st.slider(
+            "Score Mínimo",
+            0, 100, 0,
+            help="Defina o score mínimo para exibição. Valores mais altos mostram apenas empresas de maior risco."
+        )
     with col3:
-        valor_min = st.number_input("Valor Ativo Mínimo (R$)", 0, 100000000, 0)
-    
+        valor_min = st.number_input(
+            "Valor Ativo Mínimo (R$)",
+            0, 100000000, 0,
+            help="Filtre empresas com valor mínimo em parcelamentos ativos. Útil para priorizar por impacto financeiro."
+        )
+
     # Aplicar filtros
     df = df_empresas[
         (df_empresas['classificacao_risco'].isin(risco_filtro)) &
         (df_empresas['score_risco_final'] >= score_min) &
         (df_empresas['valor_ativos'] >= valor_min)
     ].copy()
-    
+
     st.markdown("---")
-    
+
+    # Legenda de classificações
+    st.markdown("""
+    <div class='indicator-legend'>
+        <div class='indicator-legend-title'>🎯 Classificações de Risco</div>
+        <span class='indicator-item'><span class='indicator-dot' style='background-color: #c62828;'></span>Crítico (≥80): Ação imediata</span>
+        <span class='indicator-item'><span class='indicator-dot' style='background-color: #ef6c00;'></span>Alto (60-79): Requer atenção</span>
+        <span class='indicator-item'><span class='indicator-dot' style='background-color: #f9a825;'></span>Médio (40-59): Monitorar</span>
+        <span class='indicator-item'><span class='indicator-dot' style='background-color: #2e7d32;'></span>Baixo (<40): Baixo risco</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     # KPIs
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
-        st.metric("Empresas Filtradas", f"{len(df):,}")
+        st.metric(
+            "Empresas Filtradas",
+            f"{len(df):,}",
+            help="📊 **Resultado do Filtro**\n\nQuantidade de empresas que atendem aos critérios selecionados.\n\n**Dica:** Ajuste os filtros para refinar sua análise."
+        )
     with col2:
-        st.metric("Score Médio", f"{df['score_risco_final'].mean():.1f}")
+        st.metric(
+            "Score Médio",
+            f"{df['score_risco_final'].mean():.1f}" if not df.empty else "N/A",
+            help="📈 **Score Médio do Grupo**\n\nMédia do score de risco das empresas filtradas.\n\n**Interpretação:**\n- < 40: Grupo de baixo risco\n- 40-60: Grupo moderado\n- > 60: Grupo de alto risco"
+        )
     with col3:
-        st.metric("Valor em Risco", formatar_valor_milhoes(df['valor_ativos'].sum()))
+        st.metric(
+            "Valor em Risco",
+            formatar_valor_milhoes(df['valor_ativos'].sum()),
+            help="💰 **Valor Total em Risco**\n\nSoma dos valores em parcelamentos ativos das empresas filtradas.\n\n**Representa:** Potencial de arrecadação que pode ser perdido se houver cancelamentos."
+        )
     with col4:
-        reincidentes = df['flag_reincidente'].sum()
-        st.metric("Reincidentes", f"{int(reincidentes):,}")
+        reincidentes = df['flag_reincidente'].sum() if not df.empty else 0
+        st.metric(
+            "Reincidentes",
+            f"{int(reincidentes):,}",
+            help="🔄 **Empresas Reincidentes**\n\nEmpresas com 3 ou mais parcelamentos cancelados no histórico.\n\n**Risco elevado:** Padrão de comportamento indica maior probabilidade de novos cancelamentos."
+        )
     
     st.markdown("---")
     
@@ -1223,20 +1540,55 @@ def pagina_empresas_risco(dados, filtros_globais):
 def pagina_drilldown_empresa(dados, filtros_globais):
     """Página de drilldown por empresa."""
     st.markdown("<h1 class='main-header'>🔍 Análise Detalhada - Empresa</h1>", unsafe_allow_html=True)
-    
+
     df_empresas = dados.get('empresas_score', pd.DataFrame())
-    
+
     if df_empresas.empty:
         st.warning("Dados de empresas não disponíveis.")
         return
-    
+
+    # Caixa de ajuda
+    with st.expander("ℹ️ Como usar esta análise", expanded=False):
+        st.markdown("""
+        ### Visão 360° da Empresa
+        Esta página oferece uma visão completa de uma empresa específica, incluindo:
+
+        - **Dados cadastrais:** CNPJ, razão social, regional e setor
+        - **Score de risco:** Pontuação e classificação atual
+        - **Histórico completo:** Todos os parcelamentos da empresa
+        - **Alertas ativos:** Situações que requerem atenção
+        - **Estatísticas:** Taxa de sucesso, valores e comportamento
+
+        ### Como usar
+        1. Selecione uma empresa no campo de busca
+        2. Analise o score e a classificação de risco
+        3. Verifique os alertas ativos
+        4. Consulte o histórico de parcelamentos
+
+        ### Dicas
+        - O score mostrado é dinâmico e atualizado diariamente
+        - Empresas ordenadas por score (maior risco primeiro)
+        - Timeline mostra a evolução dos parcelamentos
+        """)
+
+    # Dica de UX
+    st.markdown("""
+    <div class='ux-tip'>
+        <span>Digite parte do nome ou CNPJ para filtrar. Empresas estão ordenadas por score de risco (maior primeiro).</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     # Seletor de empresa
     opcoes = df_empresas.apply(
         lambda x: f"{x['razao_social']} - {formatar_cnpj_visualizacao(x['cnpj'])} (Score: {x['score_risco_final']:.0f})",
         axis=1
     ).tolist()
-    
-    empresa_sel = st.selectbox("🔎 Buscar empresa:", opcoes[:200])
+
+    empresa_sel = st.selectbox(
+        "🔎 Buscar empresa:",
+        opcoes[:200],
+        help="Selecione uma empresa para ver análise detalhada. Lista ordenada por score de risco (maior primeiro)."
+    )
     
     if empresa_sel:
         cnpj_raiz = df_empresas.iloc[opcoes.index(empresa_sel)]['cnpj_raiz']
@@ -1282,29 +1634,61 @@ def pagina_drilldown_empresa(dados, filtros_globais):
                 
                 # KPIs
                 col1, col2, col3, col4, col5 = st.columns(5)
-                
+
                 with col1:
-                    st.metric("Total Parcelamentos", f"{int(emp['total_parcelamentos']):,}")
+                    st.metric(
+                        "Total Parcelamentos",
+                        f"{int(emp['total_parcelamentos']):,}",
+                        help="📊 **Histórico Total**\n\nQuantidade total de parcelamentos já realizados por esta empresa."
+                    )
                 with col2:
-                    st.metric("Ativos", f"{int(emp['qtd_ativos']):,}")
+                    st.metric(
+                        "🔵 Ativos",
+                        f"{int(emp['qtd_ativos']):,}",
+                        help="🔵 **Em Andamento**\n\nParcelamentos atualmente em andamento com pagamentos regulares."
+                    )
                 with col3:
-                    st.metric("Quitados", f"{int(emp['qtd_quitados']):,}")
+                    st.metric(
+                        "🟢 Quitados",
+                        f"{int(emp['qtd_quitados']):,}",
+                        help="🟢 **Finalizados com Sucesso**\n\nParcelamentos que foram completamente pagos pela empresa."
+                    )
                 with col4:
-                    st.metric("Cancelados", f"{int(emp['qtd_cancelados']):,}")
+                    st.metric(
+                        "🔴 Cancelados",
+                        f"{int(emp['qtd_cancelados']):,}",
+                        help="🔴 **Cancelados**\n\nParcelamentos cancelados por inadimplência.\n\n**Atenção:** Histórico de cancelamentos afeta o score de risco."
+                    )
                 with col5:
-                    st.metric("Taxa Sucesso", f"{emp['taxa_sucesso_pct']:.1f}%")
-                
+                    st.metric(
+                        "Taxa Sucesso",
+                        f"{emp['taxa_sucesso_pct']:.1f}%",
+                        help="✅ **Taxa de Sucesso Individual**\n\n**Fórmula:** Quitados ÷ (Quitados + Cancelados)\n\n**Interpretação:**\n- ≥70%: Bom histórico\n- 50-70%: Moderado\n- <50%: Atenção"
+                    )
+
                 st.markdown("---")
-                
+
                 # Valores
                 col1, col2, col3 = st.columns(3)
-                
+
                 with col1:
-                    st.metric("Valor Total Parcelado", formatar_valor_milhoes(emp['valor_total_parcelado']))
+                    st.metric(
+                        "Valor Total Parcelado",
+                        formatar_valor_milhoes(emp['valor_total_parcelado']),
+                        help="💰 **Valor Histórico**\n\nSoma de todos os valores já parcelados pela empresa ao longo do tempo."
+                    )
                 with col2:
-                    st.metric("Valor Ativo", formatar_valor_milhoes(emp['valor_ativos']))
+                    st.metric(
+                        "Valor Ativo",
+                        formatar_valor_milhoes(emp['valor_ativos']),
+                        help="💵 **Valor em Aberto**\n\nMontante em parcelamentos atualmente ativos.\n\n**Representa:** Potencial de arrecadação futura."
+                    )
                 with col3:
-                    st.metric("Ticket Médio", formatar_valor_br(emp['valor_medio_parcelamento']))
+                    st.metric(
+                        "Ticket Médio",
+                        formatar_valor_br(emp['valor_medio_parcelamento']),
+                        help="📈 **Valor Médio por Parcelamento**\n\nMédia dos valores parcelados.\n\n**Uso:** Comparar com média geral para entender perfil da empresa."
+                    )
                 
                 st.markdown("---")
                 
@@ -1351,27 +1735,78 @@ def pagina_drilldown_empresa(dados, filtros_globais):
 def pagina_alertas(dados, filtros_globais):
     """Página de alertas."""
     st.markdown("<h1 class='main-header'>🚨 Central de Alertas</h1>", unsafe_allow_html=True)
-    
+
     alertas = dados.get('alertas', pd.DataFrame())
-    
+
     if alertas.empty:
         st.success("✅ Nenhum alerta ativo no momento.")
         return
-    
+
+    # Caixa de ajuda
+    with st.expander("ℹ️ Como funcionam os alertas", expanded=False):
+        st.markdown("""
+        ### Sistema de Alertas
+        Os alertas são gerados automaticamente para identificar parcelamentos que requerem atenção especial.
+
+        ### Níveis de Prioridade
+        | Prioridade | Cor | Significado | Ação |
+        |------------|-----|-------------|------|
+        | **URGENTE** | 🔴 Vermelho | Risco iminente de cancelamento | Ação imediata |
+        | **ALTA** | 🟠 Laranja | Alto risco identificado | Ação em 48h |
+        | **MÉDIA** | 🟡 Amarelo | Monitoramento necessário | Acompanhar |
+        | **BAIXA** | 🟢 Verde | Atenção preventiva | Verificar |
+
+        ### Tipos de Alertas
+        - **Risco de Cancelamento:** Empresa com histórico de inadimplência
+        - **Valor Elevado:** Parcelamento de grande valor em risco
+        - **Reincidência:** Empresa com múltiplos cancelamentos
+        - **Atraso de Pagamento:** Parcelas em atraso
+
+        ### Como usar
+        1. Priorize alertas URGENTES
+        2. Use os filtros para segmentar
+        3. Acesse o drill-down para detalhes da empresa
+        """)
+
+    # Dica de UX
+    st.markdown("""
+    <div class='ux-tip'>
+        <span>Priorize os alertas URGENTES (vermelho). Use os filtros para focar em tipos específicos de alertas.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     # KPIs
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
-        st.metric("Total Alertas", len(alertas))
+        st.metric(
+            "Total Alertas",
+            len(alertas),
+            help="📊 **Alertas Ativos**\n\nQuantidade total de alertas que requerem atenção.\n\n**Meta:** Reduzir progressivamente através de ações proativas."
+        )
     with col2:
         urgentes = len(alertas[alertas['prioridade'] == 1])
-        st.metric("Urgentes", urgentes, delta="Prioridade 1", delta_color="inverse")
+        st.metric(
+            "🔴 Urgentes",
+            urgentes,
+            delta="Prioridade 1",
+            delta_color="inverse",
+            help="🔴 **Alertas Urgentes**\n\nParcelamentos com risco iminente de cancelamento.\n\n**SLA:** Ação em até 24 horas.\n\n**Critérios:** Score ≥80, valor elevado, ou histórico crítico."
+        )
     with col3:
         alta = len(alertas[alertas['prioridade'] == 2])
-        st.metric("Alta Prioridade", alta)
+        st.metric(
+            "🟠 Alta Prioridade",
+            alta,
+            help="🟠 **Alta Prioridade**\n\nParcelamentos com alto risco identificado.\n\n**SLA:** Ação em até 48 horas.\n\n**Critérios:** Score 60-79, valor significativo."
+        )
     with col4:
         valor = alertas['valor_parcelado'].sum()
-        st.metric("Valor em Risco", formatar_valor_milhoes(valor))
+        st.metric(
+            "Valor em Risco",
+            formatar_valor_milhoes(valor),
+            help="💰 **Valor Total em Alerta**\n\nSoma dos valores dos parcelamentos com alertas ativos.\n\n**Representa:** Potencial de perda se não houver ação."
+        )
     
     st.markdown("---")
     
@@ -1379,10 +1814,20 @@ def pagina_alertas(dados, filtros_globais):
     col1, col2 = st.columns(2)
     with col1:
         prioridades = alertas['desc_prioridade'].unique().tolist()
-        prioridade_sel = st.multiselect("Prioridade", prioridades, default=prioridades)
+        prioridade_sel = st.multiselect(
+            "Prioridade",
+            prioridades,
+            default=prioridades,
+            help="Filtre por nível de prioridade. Comece pelos URGENTES para ações imediatas."
+        )
     with col2:
         tipos = alertas['tipo_alerta'].unique().tolist()
-        tipo_sel = st.multiselect("Tipo de Alerta", tipos, default=tipos)
+        tipo_sel = st.multiselect(
+            "Tipo de Alerta",
+            tipos,
+            default=tipos,
+            help="Filtre por tipo de alerta. Útil para análises específicas ou ações em lote."
+        )
     
     # Aplicar filtros
     df = alertas[
@@ -1450,53 +1895,84 @@ def pagina_alertas(dados, filtros_globais):
 def pagina_recuperamais(dados, filtros_globais):
     """Página de análise RECUPERA+."""
     st.markdown("<h1 class='main-header'>🔄 RECUPERA+ - Programa de Recuperação</h1>", unsafe_allow_html=True)
-    
+
     # Info do programa
     with st.expander("ℹ️ Sobre o RECUPERA+", expanded=False):
         st.markdown("""
-        **Lei nº 18.819/2024** - Programa de Recuperação de Créditos Ampliado
-        
-        - **Base legal:** Convênio ICMS nº 113/2023 (CONFAZ)
-        - **Abrangência:** Débitos de ICMS com fatos geradores até 31/12/2022
-        - **Período de adesão:** Janeiro/2024 a Maio/2024
-        
-        **Benefícios:**
-        - Cota única: até 95% de redução de juros/multas
-        - Parcelado (até 120x): até 80% de redução
-        
-        **Origens do débito:**
-        - DECLARADO: ICMS declarado pelo contribuinte
-        - DEFESA PRÉVIA: Termo de intimação defesa prévia
-        - NOTIFICAÇÃO FISCAL: Auto de infração
-        - DÍVIDA ATIVA: Débitos inscritos em DVA
+        ### Lei nº 18.819/2024 - Programa de Recuperação de Créditos Ampliado
+
+        **Base legal:** Convênio ICMS nº 113/2023 (CONFAZ)
+
+        ### Abrangência
+        - Débitos de ICMS com fatos geradores até 31/12/2022
+        - Período de adesão: Janeiro/2024 a Maio/2024
+
+        ### Benefícios Concedidos
+        | Modalidade | Redução Juros/Multas | Parcelas |
+        |------------|---------------------|----------|
+        | **Cota Única** | Até 95% | À vista |
+        | **Parcelado** | Até 80% | Até 120x |
+
+        ### Origens do Débito
+        - **DECLARADO:** ICMS declarado pelo contribuinte
+        - **DEFESA PRÉVIA:** Termo de intimação defesa prévia
+        - **NOTIFICAÇÃO FISCAL:** Auto de infração
+        - **DÍVIDA ATIVA:** Débitos inscritos em DVA
+
+        ### Objetivo
+        Oportunizar a regularização de pendências fiscais com benefícios significativos,
+        promovendo a recuperação de créditos tributários do Estado.
         """)
-    
+
+    # Dica de UX
+    st.markdown("""
+    <div class='ux-tip'>
+        <span>O RECUPERA+ é um programa especial com período de adesão encerrado. Esta análise mostra o desempenho dos parcelamentos contratados.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     resumo = dados.get('recuperamais_resumo', pd.DataFrame())
-    
+
     if resumo.empty:
         st.warning("Dados do RECUPERA+ não disponíveis.")
         return
-    
+
     # KPIs
     total = resumo.groupby('tipo_adesao').agg({
         'qtd': 'sum',
         'empresas': 'sum',
         'valor_total': 'sum'
     }).reset_index()
-    
+
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
-        st.metric("Total Parcelamentos", f"{resumo['qtd'].sum():,}")
+        st.metric(
+            "Total Adesões",
+            f"{resumo['qtd'].sum():,}",
+            help="📊 **Adesões ao Programa**\n\nQuantidade total de parcelamentos contratados no RECUPERA+.\n\n**Inclui:** Cota única e parcelamentos."
+        )
     with col2:
-        st.metric("Empresas", f"{resumo['empresas'].sum():,}")
+        st.metric(
+            "Empresas Beneficiadas",
+            f"{resumo['empresas'].sum():,}",
+            help="🏢 **Empresas Participantes**\n\nNúmero de empresas que aderiram ao programa.\n\n**Benefício:** Regularização fiscal com descontos significativos."
+        )
     with col3:
-        st.metric("Valor Total", formatar_valor_bilhoes(resumo['valor_total'].sum()))
+        st.metric(
+            "Valor Total",
+            formatar_valor_bilhoes(resumo['valor_total'].sum()),
+            help="💰 **Valor Total do Programa**\n\nSoma dos valores parcelados/pagos através do RECUPERA+.\n\n**Representa:** Volume de créditos tributários em recuperação."
+        )
     with col4:
         quitados = resumo[resumo['desc_status'] == 'QUITADO']['qtd'].sum()
         cancelados = resumo[resumo['desc_status'] == 'CANCELADO']['qtd'].sum()
         taxa = (quitados / (quitados + cancelados) * 100) if (quitados + cancelados) > 0 else 0
-        st.metric("Taxa Sucesso", f"{taxa:.1f}%")
+        st.metric(
+            "Taxa Sucesso",
+            f"{taxa:.1f}%",
+            help="✅ **Taxa de Sucesso do Programa**\n\n**Fórmula:** Quitados ÷ (Quitados + Cancelados)\n\n**Objetivo:** Manter acima de 70%.\n\n**Nota:** Cotas únicas tendem a ter taxa de 100%."
+        )
     
     st.markdown("---")
     
@@ -1578,52 +2054,87 @@ def pagina_recuperamais(dados, filtros_globais):
 def pagina_machine_learning(dados, filtros_globais):
     """Página de Machine Learning."""
     st.markdown("<h1 class='main-header'>🤖 Machine Learning - Predição de Risco</h1>", unsafe_allow_html=True)
-    
+
     # Explicação
-    with st.expander("ℹ️ Sobre o Modelo de ML", expanded=False):
+    with st.expander("ℹ️ Como funciona o Modelo de ML", expanded=False):
         st.markdown("""
-        **Objetivo:** Prever a probabilidade de cancelamento de parcelamentos ativos.
-        
-        **Modelo utilizado:** Gradient Boosting Classifier
-        
-        **Features consideradas:**
-        - Histórico de parcelamentos (quantidade, quitados, cancelados)
-        - Taxa de sucesso histórica
-        - Valor médio de parcelamento
-        - Tempo desde último parcelamento
-        - Flags de reincidência e comportamento
-        
-        **Interpretação:**
-        - Empresas com alta probabilidade de cancelamento devem ser priorizadas para ações preventivas
-        - O modelo é retreinado periodicamente com dados atualizados
+        ### Objetivo
+        Prever a **probabilidade de cancelamento** de parcelamentos ativos, permitindo ações preventivas.
+
+        ### Modelo Utilizado
+        **Gradient Boosting Classifier** - algoritmo de ensemble que combina múltiplas árvores de decisão
+        para criar um modelo robusto de classificação.
+
+        ### Features (Variáveis de Entrada)
+        | Feature | Descrição | Peso Típico |
+        |---------|-----------|-------------|
+        | `taxa_sucesso_pct` | Taxa de sucesso histórica | Alto |
+        | `qtd_cancelados` | Quantidade de cancelamentos | Alto |
+        | `flag_reincidente` | Se tem 3+ cancelamentos | Médio |
+        | `valor_medio_parcelamento` | Ticket médio | Médio |
+        | `dias_desde_ultimo` | Recência | Médio |
+        | `flag_nunca_quitou` | Nunca finalizou com sucesso | Médio |
+
+        ### Métricas de Avaliação
+        - **Acurácia:** Percentual de predições corretas
+        - **ROC-AUC:** Capacidade de distinguir classes (0.5 = aleatório, 1.0 = perfeito)
+
+        ### Como Interpretar
+        - **Probabilidade > 70%:** Risco muito alto de cancelamento
+        - **Probabilidade 50-70%:** Risco elevado
+        - **Probabilidade < 50%:** Risco moderado a baixo
+
+        ### Uso Recomendado
+        1. Execute o modelo para gerar predições atualizadas
+        2. Priorize empresas com maior probabilidade
+        3. Implemente ações preventivas antes do cancelamento
         """)
     
     engine = get_impala_engine()
-    
-    if st.button("🚀 Treinar Modelo e Gerar Predições"):
+
+    # Dica de UX
+    st.markdown("""
+    <div class='ux-tip'>
+        <span>Clique no botão abaixo para treinar o modelo e gerar predições de risco para todas as empresas.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.button("🚀 Treinar Modelo e Gerar Predições", help="Executa o treinamento do modelo e gera predições atualizadas. Pode levar alguns minutos."):
         with st.spinner("Carregando dados..."):
             df_ml = carregar_dados_ml(engine)
-        
+
         if df_ml.empty:
             st.error("Dados insuficientes para treinamento.")
             return
-        
+
         with st.spinner("Treinando modelo..."):
             modelo, scaler, features, metricas = treinar_modelo_risco(df_ml)
-        
+
         st.success("✅ Modelo treinado com sucesso!")
-        
+
         # Métricas do modelo
         st.markdown("### 📊 Métricas do Modelo")
-        
+
         col1, col2, col3 = st.columns(3)
-        
+
         with col1:
-            st.metric("Acurácia", f"{metricas['accuracy']*100:.1f}%")
+            st.metric(
+                "Acurácia",
+                f"{metricas['accuracy']*100:.1f}%",
+                help="📊 **Acurácia do Modelo**\n\nPercentual de predições corretas no conjunto de teste.\n\n**Interpretação:**\n- >80%: Excelente\n- 70-80%: Bom\n- <70%: Precisa melhorar"
+            )
         with col2:
-            st.metric("ROC-AUC", f"{metricas['roc_auc']:.3f}")
+            st.metric(
+                "ROC-AUC",
+                f"{metricas['roc_auc']:.3f}",
+                help="📈 **ROC-AUC Score**\n\nCapacidade do modelo de distinguir entre classes.\n\n**Interpretação:**\n- 1.0: Perfeito\n- 0.8-0.9: Muito bom\n- 0.7-0.8: Bom\n- 0.5: Aleatório"
+            )
         with col3:
-            st.metric("Features", len(features))
+            st.metric(
+                "Features",
+                len(features),
+                help="🔢 **Variáveis do Modelo**\n\nQuantidade de features utilizadas para treinar o modelo.\n\n**Nota:** Mais features nem sempre significam melhor modelo."
+            )
         
         # Importância das features
         st.markdown("### 📈 Importância das Features")
@@ -1687,40 +2198,89 @@ def pagina_machine_learning(dados, filtros_globais):
 def pagina_expectativa_recebimento(dados, filtros_globais):
     """Página de expectativa de recebimento."""
     st.markdown("<h1 class='main-header'>💰 Expectativa de Recebimento</h1>", unsafe_allow_html=True)
-    
+
     expectativa = dados.get('expectativa_resumo', pd.DataFrame())
     resumo = dados.get('resumo', pd.DataFrame())
-    
+
     if expectativa.empty or resumo.empty:
         st.warning("Dados de expectativa não disponíveis.")
         return
-    
+
+    # Caixa de ajuda
+    with st.expander("ℹ️ Como interpretar as projeções", expanded=False):
+        st.markdown("""
+        ### Metodologia de Projeção
+
+        #### Valor Bruto
+        Soma das parcelas esperadas no período, assumindo que todos os parcelamentos ativos
+        continuarão sendo pagos normalmente.
+
+        #### Valor Ajustado por Risco
+        Valor bruto multiplicado pela probabilidade de sucesso baseada na classificação de risco:
+
+        | Classificação | Probabilidade | Explicação |
+        |---------------|---------------|------------|
+        | **BAIXO** | 85% | Histórico consistente de pagamentos |
+        | **MÉDIO** | 65% | Alguns sinais de atenção |
+        | **ALTO** | 40% | Risco significativo de cancelamento |
+        | **CRÍTICO** | 20% | Alta probabilidade de não recebimento |
+
+        ### Exemplo de Cálculo
+        Se uma empresa de risco ALTO tem R$ 100.000 esperados em 3 meses:
+        - Valor Bruto: R$ 100.000
+        - Valor Ajustado: R$ 100.000 × 40% = R$ 40.000
+
+        ### Uso Recomendado
+        - **Planejamento orçamentário:** Use o valor ajustado
+        - **Meta otimista:** Use o valor bruto
+        - **Análise de gap:** Compare bruto vs ajustado para medir risco
+        """)
+
+    # Dica de UX
+    st.markdown("""
+    <div class='ux-tip'>
+        <span>O valor ajustado por risco é mais conservador e realista para planejamento. A diferença entre bruto e ajustado indica o valor em risco.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     r = resumo.iloc[0]
-    
+
     # KPIs
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
         st.metric(
             "3 Meses (Bruto)",
             formatar_valor_milhoes(r.get('expectativa_3_meses', 0)),
-            help="Expectativa bruta sem ajuste de risco"
+            help="💵 **Expectativa Bruta - 3 Meses**\n\nSoma das parcelas esperadas nos próximos 3 meses.\n\n**Premissa:** Todos os parcelamentos ativos continuam sendo pagos.\n\n**Uso:** Cenário otimista."
         )
     with col2:
+        bruto_3m = r.get('expectativa_3_meses', 0) or 0
+        ajust_3m = r.get('expectativa_ajustada_3_meses', 0) or 0
+        diff_3m = bruto_3m - ajust_3m
         st.metric(
             "3 Meses (Ajustado)",
-            formatar_valor_milhoes(r.get('expectativa_ajustada_3_meses', 0)),
-            help="Expectativa ajustada pela probabilidade de sucesso"
+            formatar_valor_milhoes(ajust_3m),
+            delta=f"-{formatar_valor_milhoes(diff_3m)} em risco" if diff_3m > 0 else None,
+            delta_color="inverse",
+            help="💰 **Expectativa Ajustada - 3 Meses**\n\nValor esperado considerando a probabilidade de sucesso por classificação de risco.\n\n**Fórmula:** Bruto × Probabilidade de Sucesso\n\n**Uso:** Planejamento conservador."
         )
     with col3:
         st.metric(
             "12 Meses (Bruto)",
-            formatar_valor_milhoes(r.get('expectativa_12_meses', 0))
+            formatar_valor_milhoes(r.get('expectativa_12_meses', 0)),
+            help="💵 **Expectativa Bruta - 12 Meses**\n\nSoma das parcelas esperadas no próximo ano.\n\n**Premissa:** Todos os parcelamentos ativos continuam sendo pagos.\n\n**Uso:** Projeção anual otimista."
         )
     with col4:
+        bruto_12m = r.get('expectativa_12_meses', 0) or 0
+        ajust_12m = r.get('expectativa_ajustada_12_meses', 0) or 0
+        diff_12m = bruto_12m - ajust_12m
         st.metric(
             "12 Meses (Ajustado)",
-            formatar_valor_milhoes(r.get('expectativa_ajustada_12_meses', 0))
+            formatar_valor_milhoes(ajust_12m),
+            delta=f"-{formatar_valor_milhoes(diff_12m)} em risco" if diff_12m > 0 else None,
+            delta_color="inverse",
+            help="💰 **Expectativa Ajustada - 12 Meses**\n\nValor esperado considerando a probabilidade de sucesso por classificação de risco.\n\n**Fórmula:** Bruto × Probabilidade de Sucesso\n\n**Uso:** Planejamento anual conservador."
         )
     
     st.markdown("---")
